@@ -29,11 +29,11 @@ trait TermResource extends StarChatResource {
             authenticator = authenticator.authenticator) { user =>
             authorizeAsync(_ =>
               authenticator.hasPermissions(user, indexName, Permissions.stream)) {
-              extractMethod { method =>
+              extractRequest { request =>
                 val entryIterator = termService.allDocuments(indexName)
                 val entries: Source[Term, NotUsed] =
                   Source.fromIterator(() => entryIterator)
-                log.info("index(" + indexName + ") route=termRoutes method=" + method + " function=index")
+                log.info(logTemplate(user.id, indexName, "termRoutes", request.method, request.uri) + "function=index")
                 complete(entries)
               }
             }
@@ -53,19 +53,20 @@ trait TermResource extends StarChatResource {
                 authenticator = authenticator.authenticator) { user =>
                 authorizeAsync(_ =>
                   authenticator.hasPermissions(user, indexName, Permissions.write)) {
-                  parameters("refresh".as[Int] ? 0) { refresh =>
-                    entity(as[Terms]) { request_data =>
-                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                      onCompleteWithBreaker(breaker)(termService.indexTermFuture(indexName, request_data, refresh)) {
-                        case Success(t) =>
-                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                        case Failure(e) =>
-                          log.error("index(" + indexName + ") route=termRoutes method=POST function=index : " +
-                            e.getMessage)
-                          completeResponse(StatusCodes.BadRequest,
-                            Option {
-                              ReturnMessageData(code = 100, message = e.getMessage)
-                            })
+                  extractRequest { request =>
+                    parameters("refresh".as[Int] ? 0) { refresh =>
+                      entity(as[Terms]) { request_data =>
+                        val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                        onCompleteWithBreakerFuture(breaker)(termService.indexTerm(indexName, request_data, refresh)) {
+                          case Success(t) =>
+                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                          case Failure(e) =>
+                            log.error(logTemplate(user.id, indexName, "termRoutes", request.method, request.uri, "function=index"), e)
+                            completeResponse(StatusCodes.BadRequest,
+                              Option {
+                                ReturnMessageData(code = 100, message = e.getMessage)
+                              })
+                        }
                       }
                     }
                   }
@@ -76,20 +77,21 @@ trait TermResource extends StarChatResource {
                 authenticator = authenticator.authenticator) { user =>
                 authorizeAsync(_ =>
                   authenticator.hasPermissions(user, indexName, Permissions.read)) {
-                  entity(as[DocsIds]) { requestData =>
-                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(
-                      termService.termsDistance( indexName = indexName, termsReq = requestData)
-                    ) {
-                      case Success(t) =>
-                        completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                      case Failure(e) =>
-                        log.error("index(" + indexName + ") route=termRoutes method=POST function=get : " +
-                          e.getMessage)
-                        completeResponse(StatusCodes.BadRequest,
-                          Option {
-                            ReturnMessageData(code = 101, message = e.getMessage)
-                          })
+                  extractRequest { request =>
+                    entity(as[DocsIds]) { requestData =>
+                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                      onCompleteWithBreakerFuture(breaker)(
+                        termService.termsDistance(indexName = indexName, termsReq = requestData)
+                      ) {
+                        case Success(t) =>
+                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                        case Failure(e) =>
+                          log.error(logTemplate(user.id, indexName, "termRoutes", request.method, request.uri, "function=get"), e)
+                          completeResponse(StatusCodes.BadRequest,
+                            Option {
+                              ReturnMessageData(code = 101, message = e.getMessage)
+                            })
+                      }
                     }
                   }
                 }
@@ -100,21 +102,22 @@ trait TermResource extends StarChatResource {
                   authenticator = authenticator.authenticator) { user =>
                   authorizeAsync(_ =>
                     authenticator.hasPermissions(user, indexName, Permissions.write)) {
-                    parameters("refresh".as[Int] ? 0) { refresh =>
-                      val breaker: CircuitBreaker =
-                        StarChatCircuitBreaker.getCircuitBreaker(maxFailure = 5, callTimeout = 120.seconds,
-                          resetTimeout = 120.seconds)
-                      onCompleteWithBreaker(breaker)(
-                        termService.indexDefaultSynonyms(indexName = indexName, refresh = refresh)) {
-                        case Success(t) =>
-                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                        case Failure(e) =>
-                          log.error("index(" + indexName + ") " +
-                            "route=termRoutes method=POST function=index_default_synonyms : " + e.getMessage)
-                          completeResponse(StatusCodes.BadRequest,
-                            Option {
-                              ReturnMessageData(code = 102, message = e.getMessage)
-                            })
+                    extractRequest { request =>
+                      parameters("refresh".as[Int] ? 0) { refresh =>
+                        val breaker: CircuitBreaker =
+                          StarChatCircuitBreaker.getCircuitBreaker(maxFailure = 5, callTimeout = 120.seconds,
+                            resetTimeout = 120.seconds)
+                        onCompleteWithBreakerFuture(breaker)(
+                          termService.indexDefaultSynonyms(indexName = indexName, refresh = refresh)) {
+                          case Success(t) =>
+                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                          case Failure(e) =>
+                            log.error(logTemplate(user.id, indexName, "termRoutes", request.method, request.uri), e )
+                            completeResponse(StatusCodes.BadRequest,
+                              Option {
+                                ReturnMessageData(code = 102, message = e.getMessage)
+                              })
+                        }
                       }
                     }
                   }
@@ -126,28 +129,30 @@ trait TermResource extends StarChatResource {
                   authenticator = authenticator.authenticator) { user =>
                   authorizeAsync(_ =>
                     authenticator.hasPermissions(user, indexName, Permissions.write)) {
-                    storeUploadedFile("csv", tempDestination(".csv")) {
-                      case (_, file) =>
-                        val breaker: CircuitBreaker =
-                          StarChatCircuitBreaker.getCircuitBreaker(maxFailure = 5,
-                            callTimeout = 120.seconds, resetTimeout = 120.seconds)
-                        onCompleteWithBreaker(breaker)(termService.indexSynonymsFromCsvFile(indexName, file)) {
-                          case Success(t) =>
-                            file.delete()
-                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
-                              t
-                            })
-                          case Failure(e) =>
-                            log.error("index(" + indexName + ") " +
-                              "route=termRoutes method=POST function=index_synonyms : " + e.getMessage)
-                            if (file.exists()) {
+                    extractRequest { request =>
+                      storeUploadedFile("csv", tempDestination(".csv")) {
+                        case (_, file) =>
+                          val breaker: CircuitBreaker =
+                            StarChatCircuitBreaker.getCircuitBreaker(maxFailure = 5,
+                              callTimeout = 120.seconds, resetTimeout = 120.seconds)
+                          onCompleteWithBreakerFuture(breaker)(termService.indexSynonymsFromCsvFile(indexName, file)) {
+                            case Success(t) =>
                               file.delete()
-                            }
-                            completeResponse(StatusCodes.BadRequest,
-                              Option {
-                                ReturnMessageData(code = 103, message = e.getMessage)
+                              completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
+                                t
                               })
-                        }
+                            case Failure(e) =>
+                              log.error(logTemplate(user.id, indexName, "termRoutes", request.method,
+                                request.uri, "function=index_synonyms"), e)
+                              if (file.exists()) {
+                                file.delete()
+                              }
+                              completeResponse(StatusCodes.BadRequest,
+                                Option {
+                                  ReturnMessageData(code = 103, message = e.getMessage)
+                                })
+                          }
+                      }
                     }
                   }
                 }
@@ -157,22 +162,22 @@ trait TermResource extends StarChatResource {
                 authenticator = authenticator.authenticator) { user =>
                 authorizeAsync(_ =>
                   authenticator.hasPermissions(user, indexName, Permissions.read)) {
-                  entity(as[DocsIds]) { requestData =>
-                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(
-                      termService.getTermsByIdFuture(
-                        indexName = indexName,
-                        termsRequest = requestData)
-                    ) {
-                      case Success(t) =>
-                        completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                      case Failure(e) =>
-                        log.error("index(" + indexName + ") route=termRoutes method=POST function=get : " +
-                          e.getMessage)
-                        completeResponse(StatusCodes.BadRequest,
-                          Option {
-                            ReturnMessageData(code = 104, message = e.getMessage)
-                          })
+                  extractRequest { request =>
+                    entity(as[DocsIds]) { requestData =>
+                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                      onCompleteWithBreakerFuture(breaker)(
+                        termService.termsById(indexName = indexName, termsRequest = requestData)
+                      ) {
+                        case Success(t) =>
+                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                        case Failure(e) =>
+                          log.error(logTemplate(user.id, indexName, "termRoutes",
+                            request.method, request.uri, "function=get"), e)
+                          completeResponse(StatusCodes.BadRequest,
+                            Option {
+                              ReturnMessageData(code = 104, message = e.getMessage)
+                            })
+                      }
                     }
                   }
                 }
@@ -182,35 +187,33 @@ trait TermResource extends StarChatResource {
                 authenticator = authenticator.authenticator) { user =>
                 authorizeAsync(_ =>
                   authenticator.hasPermissions(user, indexName, Permissions.write)) {
-                  parameters("refresh".as[Int] ? 0) { refresh =>
-                    entity(as[DocsIds]) { requestData =>
-                      if (requestData.ids.nonEmpty) {
-                        val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                        onCompleteWithBreaker(breaker)(
-                          Future { termService.delete(indexName, requestData.ids, refresh) }
-                        ) {
-                          case Success(t) =>
-                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                          case Failure(e) =>
-                            log.error("index(" + indexName + ") route=termRoutes method=DELETE : " + e.getMessage)
-                            completeResponse(StatusCodes.BadRequest,
-                              Option {
-                                ReturnMessageData(code = 105, message = e.getMessage)
-                              })
-                        }
-                      } else {
-                        val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                        onCompleteWithBreaker(breaker)(
-                          Future { termService.deleteAll(indexName) }
-                        ) {
-                          case Success(t) =>
-                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                          case Failure(e) =>
-                            log.error("index(" + indexName + ") route=termRoutes method=DELETE : " + e.getMessage)
-                            completeResponse(StatusCodes.BadRequest,
-                              Option {
-                                ReturnMessageData(code = 106, message = e.getMessage)
-                              })
+                  extractRequest { request =>
+                    parameters("refresh".as[Int] ? 0) { refresh =>
+                      entity(as[DocsIds]) { requestData =>
+                        if (requestData.ids.nonEmpty) {
+                          val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                          onCompleteWithBreakerFuture(breaker)(termService.delete(indexName, requestData.ids, refresh)) {
+                            case Success(t) =>
+                              completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                            case Failure(e) =>
+                              log.error(logTemplate(user.id, indexName, "termRoutes", request.method, request.uri), e)
+                              completeResponse(StatusCodes.BadRequest,
+                                Option {
+                                  ReturnMessageData(code = 105, message = e.getMessage)
+                                })
+                          }
+                        } else {
+                          val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                          onCompleteWithBreakerFuture(breaker)(termService.deleteAll(indexName)) {
+                            case Success(t) =>
+                              completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                            case Failure(e) =>
+                              log.error(logTemplate(user.id, indexName, "termRoutes", request.method, request.uri), e)
+                              completeResponse(StatusCodes.BadRequest,
+                                Option {
+                                  ReturnMessageData(code = 106, message = e.getMessage)
+                                })
+                          }
                         }
                       }
                     }
@@ -221,48 +224,52 @@ trait TermResource extends StarChatResource {
               authenticateBasicAsync(realm = authRealm,
                 authenticator = authenticator.authenticator) { user =>
                 authorizeAsync(_ => authenticator.hasPermissions(user, indexName, Permissions.read)) {
-                  entity(as[SearchTerm]) { requestData =>
-                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    parameters("analyzer".as[String] ? "space_punctuation") { analyzer =>
-                      onCompleteWithBreaker(breaker)(
-                        termService.searchFuture(indexName = indexName, query = requestData, analyzer = analyzer)
-                      ) {
-                        case Success(t) =>
-                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                        case Failure(e) =>
-                          log.error("index(" + indexName + ") route=termRoutes method=GET function=term : " +
-                            e.getMessage)
-                          completeResponse(StatusCodes.BadRequest,
-                            Option {
-                              IndexManagementResponse(message = e.getMessage)
-                            })
+                  extractRequest { request =>
+                    entity(as[SearchTerm]) { requestData =>
+                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                      parameters("analyzer".as[String] ? "space_punctuation") { analyzer =>
+                        onCompleteWithBreakerFuture(breaker)(
+                          termService.search(indexName = indexName, query = requestData, analyzer = analyzer)
+                        ) {
+                          case Success(t) =>
+                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                          case Failure(e) =>
+                            log.error(logTemplate(user.id, indexName, "termRoutes",
+                              request.method, request.uri, "function=term"), e)
+                            completeResponse(StatusCodes.BadRequest,
+                              Option {
+                                IndexManagementResponse(message = e.getMessage)
+                              })
                         }
                       }
                     }
+                  }
                   }
                 }
             case "text" =>
               authenticateBasicAsync(realm = authRealm,
                 authenticator = authenticator.authenticator) { user =>
                 authorizeAsync(_ => authenticator.hasPermissions(user, indexName, Permissions.read)) {
-                  entity(as[String]) { requestData =>
-                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    parameters("analyzer".as[String] ? "space_punctuation") { analyzer =>
-                      onCompleteWithBreaker(breaker)(
-                        termService.searchFuture(indexName = indexName, query = requestData, analyzer = analyzer)
-                      ) {
-                        case Success(t) =>
-                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                        case Failure(e) =>
-                          log.error("index(" + indexName + ") route=termRoutes method=GET function=text : " +
-                            e.getMessage)
-                           completeResponse(StatusCodes.BadRequest,
-                            Option {
-                              IndexManagementResponse(message = e.getMessage)
-                            })
+                  extractRequest { request =>
+                    entity(as[String]) { requestData =>
+                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                      parameters("analyzer".as[String] ? "space_punctuation") { analyzer =>
+                        onCompleteWithBreakerFuture(breaker)(
+                          termService.search(indexName = indexName, query = requestData, analyzer = analyzer)
+                        ) {
+                          case Success(t) =>
+                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                          case Failure(e) =>
+                            log.error(logTemplate(user.id, indexName, "termRoutes",
+                              request.method, request.uri, "function=text"), e)
+                            completeResponse(StatusCodes.BadRequest,
+                              Option {
+                                IndexManagementResponse(message = e.getMessage)
+                              })
                         }
                       }
                     }
+                  }
                   }
                 }
             case _ => completeResponse(StatusCodes.BadRequest,
@@ -279,17 +286,19 @@ trait TermResource extends StarChatResource {
               authenticator = authenticator.authenticator) { user =>
               authorizeAsync(_ =>
                 authenticator.hasPermissions(user, indexName, Permissions.write)) {
-                parameters("refresh".as[Int] ? 0) { refresh =>
-                  entity(as[Terms]) { request_data =>
-                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(termService.updateTermFuture(indexName, request_data, refresh)) {
-                      case Success(t) =>
-                        completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                      case Failure(e) =>
-                        log.error("index(" + indexName + ") route=termRoutes method=PUT : " + e.getMessage)
-                        completeResponse(StatusCodes.BadRequest, Option {
-                          IndexManagementResponse(message = e.getMessage)
-                        })
+                extractRequest { request =>
+                  parameters("refresh".as[Int] ? 0) { refresh =>
+                    entity(as[Terms]) { request_data =>
+                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                      onCompleteWithBreakerFuture(breaker)(termService.updateTerm(indexName, request_data, refresh)) {
+                        case Success(t) =>
+                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                        case Failure(e) =>
+                          log.error(logTemplate(user.id, indexName, "termRoutes", request.method, request.uri), e)
+                          completeResponse(StatusCodes.BadRequest, Option {
+                            IndexManagementResponse(message = e.getMessage)
+                          })
+                      }
                     }
                   }
                 }

@@ -25,19 +25,21 @@ trait LanguageGuesserResource extends StarChatResource {
             authenticator = authenticator.authenticator) { user =>
             authorizeAsync(_ =>
               authenticator.hasPermissions(user, indexName, Permissions.read)) {
-              entity(as[LanguageGuesserRequestIn]) { request_data =>
-                val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(languageGuesserService.guessLanguage(indexName, request_data)) {
-                  case Success(t) =>
-                    completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
-                      t
-                    })
-                  case Failure(e) =>
-                    log.error("index(" + indexName + ") route=languageGuesserRoutes method=POST: " + e.getMessage)
-                    completeResponse(StatusCodes.BadRequest,
-                      Option {
-                        ReturnMessageData(code = 100, message = e.getMessage)
+              extractRequest { request =>
+                entity(as[LanguageGuesserRequestIn]) { request_data =>
+                  val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                  onCompleteWithBreakerFuture(breaker)(languageGuesserService.guessLanguage(indexName, request_data)) {
+                    case Success(t) =>
+                      completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
+                        t
                       })
+                    case Failure(e) =>
+                      log.error(logTemplate(user.id, indexName, "languageGuesserRoutes", request.method, request.uri), e)
+                      completeResponse(StatusCodes.BadRequest,
+                        Option {
+                          ReturnMessageData(code = 100, message = e.getMessage)
+                        })
+                  }
                 }
               }
             }
@@ -50,18 +52,20 @@ trait LanguageGuesserResource extends StarChatResource {
               authenticator = authenticator.authenticator) { user =>
               authorizeAsync(_ =>
                 authenticator.hasPermissions(user, indexName, Permissions.read)) {
-                val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(languageGuesserService.getLanguages(indexName, language)) {
-                  case Success(t) =>
-                    completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
-                      t
-                    })
-                  case Failure(e) =>
-                    log.error("index(" + indexName + ") route=languageGuesserRoutes method=GET: " + e.getMessage)
-                    completeResponse(StatusCodes.BadRequest,
-                      Option {
-                        ReturnMessageData(code = 101, message = e.getMessage)
+                extractRequest { request =>
+                  val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                  onCompleteWithBreakerFuture(breaker)(languageGuesserService.getLanguages(indexName, language)) {
+                    case Success(t) =>
+                      completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
+                        t
                       })
+                    case Failure(e) =>
+                      log.error(logTemplate(user.id, indexName, "languageGuesserRoutes", request.method, request.uri), e)
+                      completeResponse(StatusCodes.BadRequest,
+                        Option {
+                          ReturnMessageData(code = 101, message = e.getMessage)
+                        })
+                  }
                 }
               }
             }

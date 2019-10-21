@@ -1,43 +1,15 @@
 package com.getjenny.starchat.resources
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.BasicHttpCredentials
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
-import akka.testkit._
-import com.getjenny.starchat.StarChatService
 import com.getjenny.starchat.entities._
-import com.getjenny.starchat.serializers.JsonSupport
-import com.getjenny.starchat.utils.Index
-import org.scalatest.{Matchers, WordSpec}
 
-import scala.concurrent.duration._
+class UserResourceTest extends TestBase {
 
-class UserResourceTest extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport {
-  implicit def default(implicit system: ActorSystem) = RouteTestTimeout(10.seconds.dilated(system))
-
-  val service: StarChatService = TestFixtures.service
-  val routes: Route = service.routes
-
-  val testAdminCredentials = BasicHttpCredentials("admin", "adminp4ssw0rd")
   val userCredentials = BasicHttpCredentials("AzureDiamond", "hunter3")
 
   "StarChat" should {
-    "return an HTTP code 201 when creating a new system index" in {
-      Post(s"/system_index_management/create") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
-        status shouldEqual StatusCodes.Created
-        val response = responseAs[IndexManagementResponse]
-        response.message should fullyMatch regex "IndexCreation: " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.systemIndexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.systemIndexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.systemIndexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.systemIndexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\)".r
-      }
-    }
-  }
-
-  it should {
     "return an HTTP code 200 when generating a user" in {
       val user = UserUpdate(
         id = "AzureDiamond",
@@ -172,15 +144,6 @@ class UserResourceTest extends WordSpec with Matchers with ScalatestRouteTest wi
           status shouldEqual StatusCodes.Unauthorized
         }
       )
-    }
-  }
-
-  it should {
-    "return an HTTP code 200 when deleting an existing system index" in {
-      Delete(s"/system_index_management") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
-        status shouldEqual StatusCodes.OK
-        val response = responseAs[IndexManagementResponse]
-      }
     }
   }
 

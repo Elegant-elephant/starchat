@@ -31,7 +31,7 @@ class BasicHttpStarChatAuthenticator(userService: AbstractUserService) extends A
     }
   }
 
-  def fetchUser(id: String): Future[User] = {
+  def fetchUser(id: String): Future[User] = Future {
     userService.read(UserId(id=id))
   }
 

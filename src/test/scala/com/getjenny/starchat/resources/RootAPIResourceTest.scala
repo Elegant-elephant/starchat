@@ -11,10 +11,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration._
 
-class RootAPIResourceTest extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport {
-  implicit def default(implicit system: ActorSystem) = RouteTestTimeout(10.seconds.dilated(system))
-  val service: StarChatService = TestFixtures.service
-  val routes: Route = service.routes
+class RootAPIResourceTest extends TestBase {
 
   "StarChat" should {
     "return a 200 if the service responds (Health Check)" in {

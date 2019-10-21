@@ -11,7 +11,6 @@ import com.getjenny.starchat.entities._
 import com.getjenny.starchat.routing._
 import com.getjenny.starchat.services.IndexManagementService
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
@@ -30,7 +29,7 @@ trait IndexManagementResource extends StarChatResource {
               parameters("indexSuffix".as[Option[String]] ? Option.empty[String]) { indexSuffix =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker
                   .getCircuitBreaker(maxFailure = 10, callTimeout = 30.seconds)
-                onCompleteWithBreaker(breaker)(
+                onCompleteWithBreakerFuture(breaker)(
                   indexManagementService.create(indexName = indexName, indexSuffix = indexSuffix)
                 ) {
                   case Success(t) => completeResponse(StatusCodes.Created, StatusCodes.BadRequest, Option {
@@ -58,9 +57,8 @@ trait IndexManagementResource extends StarChatResource {
               authenticator.hasPermissions(user, indexName, Permissions.write)) {
               parameters("indexSuffix".as[Option[String]] ? Option.empty[String]) { indexSuffix =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(
-                  Future { indexManagementService.openClose(indexName = indexName, indexSuffix = indexSuffix,
-                    operation = operation) }
+                onCompleteWithBreakerFuture(breaker)(
+                  indexManagementService.openClose(indexName = indexName, indexSuffix = indexSuffix, operation = operation)
                 ) {
                   case Success(t) => completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                     t
@@ -87,7 +85,7 @@ trait IndexManagementResource extends StarChatResource {
               authenticator.hasPermissions(user, indexName, Permissions.write)) {
               parameters("indexSuffix".as[Option[String]] ? Option.empty[String]) { indexSuffix =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(
+                onCompleteWithBreakerFuture(breaker)(
                   indexManagementService.refresh(indexName = indexName, indexSuffix = indexSuffix)
                 ) {
                   case Success(t) => completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
@@ -116,7 +114,7 @@ trait IndexManagementResource extends StarChatResource {
                 authenticator.hasPermissions(user, "admin", Permissions.admin)) {
                 parameters("indexSuffix".as[Option[String]] ? Option.empty[String]) { indexSuffix =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(
+                  onCompleteWithBreakerFuture(breaker)(
                     mappingOrSettings match {
                       case "mappings" => indexManagementService.updateMappings(indexName = indexName,
                         indexSuffix = indexSuffix)
@@ -151,8 +149,8 @@ trait IndexManagementResource extends StarChatResource {
                 authenticator.hasPermissions(user, indexName, Permissions.read)) {
                 parameters("indexSuffix".as[Option[String]] ? Option.empty[String]) { indexSuffix =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(
-                    Future { indexManagementService.check(indexName = indexName, indexSuffix = indexSuffix) }
+                  onCompleteWithBreakerFuture(breaker)(
+                    indexManagementService.check(indexName = indexName, indexSuffix = indexSuffix)
                   ) {
                     case Success(t) => completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                       t
@@ -173,7 +171,7 @@ trait IndexManagementResource extends StarChatResource {
                   authenticator.hasPermissions(user, "admin", Permissions.admin)) {
                   parameters("indexSuffix".as[Option[String]] ? Option.empty[String]) { indexSuffix =>
                     val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(
+                    onCompleteWithBreakerFuture(breaker)(
                       indexManagementService.remove(indexName = indexName, indexSuffix = indexSuffix)
                     ) {
                       case Success(t) => completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {

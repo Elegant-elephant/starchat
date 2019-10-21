@@ -33,8 +33,8 @@ object DtReloadService extends AbstractDataService {
   private[this] val indexName: String =
     Index.indexName(elasticClient.indexName, elasticClient.systemRefreshDtIndexSuffix)
 
-  def updateDTReloadTimestamp(dtIndexName: String, timestamp: Long = DT_RELOAD_TIMESTAMP_DEFAULT, refresh: Int = 0):
-  Future[Option[DtReloadTimestamp]] = Future {
+  def updateDTReloadTimestamp(dtIndexName: String, timestamp: Long = DT_RELOAD_TIMESTAMP_DEFAULT,
+                              refresh: Int = 0): Option[DtReloadTimestamp] = {
     val client: RestHighLevelClient = elasticClient.httpClient
     val ts: Long = if (timestamp === DT_RELOAD_TIMESTAMP_DEFAULT) System.currentTimeMillis else timestamp
 
@@ -50,7 +50,7 @@ object DtReloadService extends AbstractDataService {
 
     val response: UpdateResponse = client.update(updateReq, RequestOptions.DEFAULT)
 
-    log.debug("dt reload timestamp response status: " + response.status())
+    log.debug("dt reload timestamp response status: {}", response.status())
 
     if (refresh =/= 0) {
       val refreshIndex = elasticClient
@@ -82,7 +82,7 @@ object DtReloadService extends AbstractDataService {
         case Some(t) => t.asInstanceOf[Long]
         case None => DT_RELOAD_TIMESTAMP_DEFAULT
       }
-      log.debug("dt reload timestamp is: " + loadedTs)
+      log.debug("dt reload timestamp is: {}", loadedTs)
       loadedTs
     }
 

@@ -53,7 +53,7 @@ object ClusterNodesService extends AbstractDataService {
 
     val response: UpdateResponse = client.update(updateReq, RequestOptions.DEFAULT)
 
-    log.debug("set alive node status: " + response.status())
+    log.debug("set alive node status: {}", response.status())
 
     if (refresh =/= 0) {
       val refreshIndex = elasticClient.refresh(indexName)
@@ -85,7 +85,7 @@ object ClusterNodesService extends AbstractDataService {
         case None =>
           CLUSTER_NODE_ALIVE_TIMESTAMP_DEFAULT
       }
-      log.debug("UUID(" + uuid + ") last time was seen alive: " + aliveTs)
+      log.debug("UUID({}) last time was seen alive: {}", uuid, aliveTs)
       aliveTs
     }
 

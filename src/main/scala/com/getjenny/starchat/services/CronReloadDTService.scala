@@ -23,7 +23,7 @@ object CronReloadDTService extends CronService {
         val startUpdateTimestamp: Long = System.currentTimeMillis
         val maxItemsIndexesToUpdate: Long = math.max(analyzerService.dtMaxTables, analyzerService.analyzersMap.size)
 
-        log.debug("Start DT reloading session: " + startUpdateTimestamp + " items(" + maxItemsIndexesToUpdate + ")")
+        log.debug("Start DT reloading session: {} items({})", startUpdateTimestamp, maxItemsIndexesToUpdate)
 
         val indexCheck: List[(String, Boolean)] =
           dtReloadService.allDTReloadTimestamp(Some(updateTimestamp), Some(maxItemsIndexesToUpdate))
@@ -38,26 +38,26 @@ object CronReloadDTService extends CronService {
               if (dtReloadEntry.timestamp > 0 && localReloadIndexTimestamp < dtReloadEntry.timestamp) {
                 log.info("dt reloading for index(" + dtReloadEntry.indexName +
                   ") timestamp (" + startUpdateTimestamp + ") : " + dtReloadEntry.timestamp)
-                Try(Await.result(analyzerService.loadAnalyzers(indexName = dtReloadEntry.indexName), 120.second)) match {
+                Try(analyzerService.loadAnalyzers(indexName = dtReloadEntry.indexName)) match {
                   case Success(relRes) =>
                     updateTimestamp = math.max(updateTimestamp, localReloadIndexTimestamp)
                     log.info("Analyzer loaded for index(" + dtReloadEntry + "), timestamp (" +
-                      startUpdateTimestamp + ") res(" + relRes + ") remote ts: " + dtReloadEntry )
+                      startUpdateTimestamp + ") res(" + relRes + ") remote ts: " + dtReloadEntry)
                     analyzerService.analyzersMap(dtReloadEntry.indexName)
                       .lastReloadingTimestamp = dtReloadEntry.timestamp
                     (dtReloadEntry.indexName, true)
                   case Failure(e) =>
-                    log.debug("unable to load analyzers for index(" + dtReloadEntry +
-                      "), timestamp(" + startUpdateTimestamp + "), cron job" + e.getMessage)
+                    log.error("unable to load analyzers for index({}), timestamp({}), cron job: ",
+                      dtReloadEntry, startUpdateTimestamp, e)
                     (dtReloadEntry.indexName, false)
                 }
               } else {
                 (dtReloadEntry.indexName, true)
               }
             }
-        indexCheck.filter{case(_, check) => !check}.foreach { case (index, _) =>
+        indexCheck.filter { case (_, check) => !check }.foreach { case (index, _) =>
           val indexMgmRes = indexManagementService.check(index)
-          if(indexMgmRes.check) {
+          if (indexMgmRes.check) {
             log.error("Index exists but loading results in an error: " + indexMgmRes.message)
           } else {
             val r = dtReloadService.deleteEntry(ids = List(index))

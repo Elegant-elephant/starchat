@@ -30,17 +30,9 @@ trait UserResource extends StarChatResource {
               authenticator.hasPermissions(user, "admin", Permissions.admin)) {
               entity(as[User]) { userEntity =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(userService.create(userEntity)) {
+                onCompleteWithBreakerFuture(breaker)(userService.create(userEntity)) {
                   case Success(t) => completeResponse(StatusCodes.Created, StatusCodes.BadRequest, Some(t))
-                  case Failure(e) =>
-                    e match {
-                      case authException: AuthenticationException =>
-                        completeResponse(StatusCodes.Unauthorized, authException.getMessage)
-                      case NonFatal(nonFatalE) =>
-                        completeResponse(StatusCodes.Unauthorized, nonFatalE.getMessage)
-                      case _: Exception =>
-                        completeResponse(StatusCodes.BadRequest, e.getMessage)
-                    }
+                  case Failure(e) => handleFailure(e)
                 }
               }
             }
@@ -60,17 +52,9 @@ trait UserResource extends StarChatResource {
               authenticator.hasPermissions(user, "admin", Permissions.admin)) {
               entity(as[UserUpdate]) { userEntity =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(userService.update(userEntity)) {
+                onCompleteWithBreakerFuture(breaker)(userService.update(userEntity)) {
                   case Success(t) => completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Some(t))
-                  case Failure(e) =>
-                    e match {
-                      case authException: AuthenticationException =>
-                        completeResponse(StatusCodes.Unauthorized, authException.getMessage)
-                      case NonFatal(nonFatalE) =>
-                        completeResponse(StatusCodes.Unauthorized, nonFatalE.getMessage)
-                      case _: Exception =>
-                        completeResponse(StatusCodes.BadRequest, e.getMessage)
-                    }
+                  case Failure(e) => handleFailure(e)
                 }
               }
             }
@@ -89,17 +73,9 @@ trait UserResource extends StarChatResource {
             authenticator.hasPermissions(user, "admin", Permissions.admin)) {
             entity(as[UserId]) { userEntity =>
               val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-              onCompleteWithBreaker(breaker)(userService.delete(userEntity)) {
+              onCompleteWithBreakerFuture(breaker)(userService.delete(userEntity)) {
                 case Success(t) => completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Some(t))
-                case Failure(e) =>
-                  e match {
-                    case authException : AuthenticationException =>
-                      completeResponse(StatusCodes.Unauthorized, authException.getMessage)
-                    case NonFatal(nonFatalE) =>
-                      completeResponse(StatusCodes.Unauthorized, nonFatalE.getMessage)
-                    case _: Exception =>
-                      completeResponse(StatusCodes.BadRequest, e.getMessage)
-                  }
+                case Failure(e) => handleFailure(e)
               }
             }
           }
@@ -118,17 +94,9 @@ trait UserResource extends StarChatResource {
               authenticator.hasPermissions(user, "admin", Permissions.admin)) {
               entity(as[UserId]) { userEntity =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(userService.read(userEntity)) {
+                onCompleteWithBreakerFuture(breaker)(userService.read(userEntity)) {
                   case Success(t) => completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Some(t))
-                  case Failure(e) =>
-                    e match {
-                      case authException: AuthenticationException =>
-                        completeResponse(StatusCodes.Unauthorized, authException.getMessage)
-                      case NonFatal(nonFatalE) =>
-                        completeResponse(StatusCodes.Unauthorized, nonFatalE.getMessage)
-                      case _: Exception =>
-                        completeResponse(StatusCodes.BadRequest, e.getMessage)
-                    }
+                  case Failure(e) => handleFailure(e)
                 }
               }
             }
@@ -148,19 +116,9 @@ trait UserResource extends StarChatResource {
               authenticator.hasPermissions(user, "admin", Permissions.admin)) {
               entity(as[UserUpdate]) { userEntity =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(Future {
-                  userService.genUser(userEntity, authenticator)
-                }) {
+                onCompleteWithBreakerFuture(breaker)(userService.genUser(userEntity, authenticator)) {
                   case Success(t) => completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Some(t))
-                  case Failure(e) =>
-                    e match {
-                      case authException: AuthenticationException =>
-                        completeResponse(StatusCodes.Unauthorized, authException.getMessage)
-                      case NonFatal(nonFatalE) =>
-                        completeResponse(StatusCodes.Unauthorized, nonFatalE.getMessage)
-                      case _: Exception =>
-                        completeResponse(StatusCodes.BadRequest, e.getMessage)
-                    }
+                  case Failure(e) => handleFailure(e)
                 }
               }
             }
@@ -169,5 +127,17 @@ trait UserResource extends StarChatResource {
       }
     }
   }
+
+  private[this] def handleFailure(e: Throwable): Route = {
+    e match {
+      case authException: AuthenticationException =>
+        completeResponse(StatusCodes.Unauthorized, authException.getMessage)
+      case NonFatal(nonFatalE) =>
+        completeResponse(StatusCodes.Unauthorized, nonFatalE.getMessage)
+      case _: Exception =>
+        completeResponse(StatusCodes.BadRequest, e.getMessage)
+    }
+  }
+
 }
 

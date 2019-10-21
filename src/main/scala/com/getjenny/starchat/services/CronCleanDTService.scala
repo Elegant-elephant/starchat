@@ -23,7 +23,7 @@ object CronCleanDTService extends CronService {
               case (_, analyzer) => analyzer.lastEvaluationTimestamp
             }.take(exceedingItems.toInt)
           itemsToRemove.foreach{case(state, _)=>
-            log.info("removing decision table: " + state)
+            log.info("removing decision table: {}", state)
             analyzerService.analyzersMap.remove(state)
           }
         }

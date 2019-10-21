@@ -62,8 +62,7 @@ object NodeDtLoadingStatusService extends AbstractDataService {
 
     val response: UpdateResponse = client.update(updateReq, RequestOptions.DEFAULT)
 
-    log.debug("set update dt (" + dtNodeStatus.index + ") on node(" + uuid + ") timestamp(" + timestamp + ") " +
-      response.status())
+    log.debug("set update dt ({}) on node({}) timestamp({}) ", dtNodeStatus.index, uuid, timestamp, response.status())
 
     if (refresh =/= 0) {
       val refreshIndex = elasticClient.refresh(indexName)

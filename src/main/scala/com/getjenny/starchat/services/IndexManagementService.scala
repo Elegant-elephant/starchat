@@ -127,8 +127,7 @@ object IndexManagementService extends AbstractDataService {
     }
   }
 
-  def create(indexName: String,
-             indexSuffix: Option[String] = None): Future[IndexManagementResponse] = Future {
+  def create(indexName: String, indexSuffix: Option[String] = None): IndexManagementResponse = {
     val client: RestHighLevelClient = elasticClient.httpClient
 
     // extract language from index name
@@ -189,7 +188,7 @@ object IndexManagementService extends AbstractDataService {
   }
 
   def remove(indexName: String,
-             indexSuffix: Option[String] = None): Future[IndexManagementResponse] = Future {
+             indexSuffix: Option[String] = None): IndexManagementResponse = {
     val client: RestHighLevelClient = elasticClient.httpClient
 
     if (!elasticClient.enableDeleteIndex) {
@@ -273,7 +272,7 @@ object IndexManagementService extends AbstractDataService {
   }
 
   def updateSettings(indexName: String,
-                     indexSuffix: Option[String] = None): Future[IndexManagementResponse] = Future {
+                     indexSuffix: Option[String] = None): IndexManagementResponse = {
     val client: RestHighLevelClient = elasticClient.httpClient
 
     val (_, language, _) = Index.patternsFromIndexName(indexName: String)
@@ -314,7 +313,7 @@ object IndexManagementService extends AbstractDataService {
   }
 
   def updateMappings(indexName: String,
-                     indexSuffix: Option[String] = None): Future[IndexManagementResponse] = Future {
+                     indexSuffix: Option[String] = None): IndexManagementResponse = {
     val client: RestHighLevelClient = elasticClient.httpClient
 
     val operationsMessage: List[(String, Boolean)] = schemaFiles.filter(item => {
@@ -351,7 +350,7 @@ object IndexManagementService extends AbstractDataService {
   }
 
   def refresh(indexName: String,
-              indexSuffix: Option[String] = None): Future[RefreshIndexResults] = Future {
+              indexSuffix: Option[String] = None): RefreshIndexResults =  {
     val operationsResults: List[RefreshIndexResult] = schemaFiles.filter(item => {
       indexSuffix match {
         case Some(t) => t === item.indexSuffix

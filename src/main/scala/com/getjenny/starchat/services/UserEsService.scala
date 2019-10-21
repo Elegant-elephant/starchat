@@ -40,7 +40,7 @@ class UserEsService extends AbstractUserService {
   private[this] val adminUser = User(id = admin, password = password, salt = salt,
     permissions = Map("admin" -> Set(Permissions.admin)))
 
-  def create(user: User): Future[IndexDocumentResult] = Future {
+  def create(user: User): IndexDocumentResult = {
 
     if(user.id === "admin") {
       throw new AuthenticationException("admin user cannot be changed")
@@ -86,7 +86,7 @@ class UserEsService extends AbstractUserService {
     docResult
   }
 
-  def update(user: UserUpdate): Future[UpdateDocumentResult] = Future {
+  def update(user: UserUpdate): UpdateDocumentResult = {
 
     if(user.id === "admin") {
       throw new AuthenticationException("admin user cannot be changed")
@@ -142,7 +142,7 @@ class UserEsService extends AbstractUserService {
     docResult
   }
 
-  def delete(user: UserId): Future[DeleteDocumentResult] = Future {
+  def delete(user: UserId): DeleteDocumentResult = {
 
     if(user.id === "admin") {
       throw new AuthenticationException("admin user cannot be changed")
@@ -170,7 +170,7 @@ class UserEsService extends AbstractUserService {
     docResult
   }
 
-  def read(user: UserId): Future[User] = Future {
+  def read(user: UserId): User = {
     if(user.id === "admin") {
       adminUser
     } else {
@@ -216,7 +216,7 @@ class UserEsService extends AbstractUserService {
   }
 
   /** given id and optionally password and permissions, generate a new user */
-  def genUser(user: UserUpdate, authenticator: AbstractStarChatAuthenticator): Future[User] = Future {
+  def genUser(user: UserUpdate, authenticator: AbstractStarChatAuthenticator): User = {
 
     val passwordPlain = user.password match {
       case Some(t) => t

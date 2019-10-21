@@ -17,7 +17,7 @@ object CronNodeAliveSignalService extends CronService {
       case `tickMessage` =>
         if(clusterNodesService.elasticClient.existsIndices(List(clusterNodesService.indexName))) {
           clusterNodesService.alive()
-        } else log.debug("index does not exists: " + clusterNodesService.indexName)
+        } else log.debug("index does not exists: {}", clusterNodesService.indexName)
       case _ =>
         log.error("Unknown error communicating that node is alive")
     }

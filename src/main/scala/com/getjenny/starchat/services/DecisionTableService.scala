@@ -425,7 +425,7 @@ object DecisionTableService extends AbstractDataService {
     }
   }
 
-  def search(indexName: String, documentSearch: DTDocumentSearch): Future[SearchDTDocumentsResults] = {
+  def search(indexName: String, documentSearch: DTDocumentSearch): SearchDTDocumentsResults = {
     val client: RestHighLevelClient = elasticClient.httpClient
 
     val sourceReq: SearchSourceBuilder = new SearchSourceBuilder()
@@ -485,15 +485,11 @@ object DecisionTableService extends AbstractDataService {
     }
 
     val total : Int = filteredDoc.length
-    val searchResults : SearchDTDocumentsResults = SearchDTDocumentsResults(total = total, maxScore = maxScore,
-      hits = filteredDoc)
-
-    val searchResultsOption : Future[SearchDTDocumentsResults] = Future { searchResults }
-    searchResultsOption
+    SearchDTDocumentsResults(total = total, maxScore = maxScore, hits = filteredDoc)
   }
 
   def searchDtQueries(indexName: String,
-                      analyzerEvaluateRequest: AnalyzerEvaluateRequest): Future[SearchDTDocumentsResults] = {
+                      analyzerEvaluateRequest: AnalyzerEvaluateRequest): SearchDTDocumentsResults = {
     val dtDocumentSearch: DTDocumentSearch =
       DTDocumentSearch(
         from = Option {0},
@@ -523,10 +519,6 @@ object DecisionTableService extends AbstractDataService {
           (doc.document.state, (doc.score, doc))
       }.toMap
     )
-  }
-
-  def createFuture(indexName: String, document: DTDocument, refresh: Int): Future[IndexDocumentResult] = Future {
-    create(indexName, document, refresh)
   }
 
   def create(indexName: String, document: DTDocument, refresh: Int): IndexDocumentResult = {
@@ -588,8 +580,7 @@ object DecisionTableService extends AbstractDataService {
     docResult
   }
 
-  def update(indexName: String, document: DTDocumentUpdate, refresh: Int):
-  Future[UpdateDocumentResult] = Future {
+  def update(indexName: String, document: DTDocumentUpdate, refresh: Int): UpdateDocumentResult = {
     val builder : XContentBuilder = jsonBuilder().startObject()
 
     document.analyzer match {
@@ -680,7 +671,7 @@ object DecisionTableService extends AbstractDataService {
     docResult
   }
 
-  def getDTDocuments(indexName: String): Future[SearchDTDocumentsResults] = Future {
+  def getDTDocuments(indexName: String): SearchDTDocumentsResults = {
     val client: RestHighLevelClient = elasticClient.httpClient
 
     val sourceReq: SearchSourceBuilder = new SearchSourceBuilder()
@@ -776,7 +767,7 @@ object DecisionTableService extends AbstractDataService {
     SearchDTDocumentsResults(total = total, maxScore = maxScore, hits = decisionTableContent)
   }
 
-  def read(indexName: String, ids: List[String]): Future[SearchDTDocumentsResults] = Future {
+  def read(indexName: String, ids: List[String]): SearchDTDocumentsResults =  {
     val client: RestHighLevelClient = elasticClient.httpClient
 
     val multiGetReq = new MultiGetRequest()
@@ -882,23 +873,24 @@ object DecisionTableService extends AbstractDataService {
   }
 
   def indexCSVFileIntoDecisionTable(indexName: String, file: File, skipLines: Int = 1, separator: Char = ','):
-  Future[IndexDocumentListResult] = Future {
+  IndexDocumentListResult =  {
     val documents: IndexedSeq[DTDocument] = FileToDocuments.getDTDocumentsFromCSV(log = log, file = file,
       skipLines = skipLines, separator = separator)
 
     val indexDocumentListResult = documents.map(dtDocument => {
       create(indexName, dtDocument, 0)
     }).toList
+
     IndexDocumentListResult(data = indexDocumentListResult)
   }
 
-  def indexJSONFileIntoDecisionTable(indexName: String, file: File):
-  Future[IndexDocumentListResult] = Future {
+  def indexJSONFileIntoDecisionTable(indexName: String, file: File): IndexDocumentListResult =  {
     val documents: IndexedSeq[DTDocument] = FileToDocuments.getDTDocumentsFromJSON(log = log, file = file)
 
     val indexDocumentListResult = documents.map(dtDocument => {
       create(indexName, dtDocument, 0)
     }).toList
+
     IndexDocumentListResult(data = indexDocumentListResult)
   }
 

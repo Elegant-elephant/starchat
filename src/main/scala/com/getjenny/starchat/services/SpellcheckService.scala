@@ -20,7 +20,7 @@ import scala.concurrent.Future
 object SpellcheckService extends AbstractDataService {
   override val elasticClient: KnowledgeBaseElasticClient.type = KnowledgeBaseElasticClient
 
-  def termsSuggester(indexName: String, request: SpellcheckTermsRequest) : Future[SpellcheckTermsResponse] = Future {
+  def termsSuggester(indexName: String, request: SpellcheckTermsRequest) : SpellcheckTermsResponse = {
     val client: RestHighLevelClient = elasticClient.httpClient
 
     val suggestionBuilder: TermSuggestionBuilder = new TermSuggestionBuilder("question.base")

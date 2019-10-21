@@ -26,17 +26,19 @@ trait SpellcheckResource extends StarChatResource {
               authenticator = authenticator.authenticator) { user =>
               authorizeAsync(_ =>
                 authenticator.hasPermissions(user, indexName, Permissions.read)) {
-                entity(as[SpellcheckTermsRequest]) { request =>
-                  val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(spellcheckService.termsSuggester(indexName, request)) {
-                    case Success(t) =>
-                      completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                    case Failure(e) =>
-                      log.error("index(" + indexName + ") route=spellcheckRoutes method=POST: " + e.getMessage)
-                      completeResponse(StatusCodes.BadRequest,
-                        Option {
-                          ReturnMessageData(code = 100, message = e.getMessage)
-                        })
+                extractRequest { request =>
+                  entity(as[SpellcheckTermsRequest]) { spellCheckRequest =>
+                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                    onCompleteWithBreakerFuture(breaker)(spellcheckService.termsSuggester(indexName, spellCheckRequest)) {
+                      case Success(t) =>
+                        completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                      case Failure(e) =>
+                        log.error(logTemplate(user.id, indexName, "spellcheckRoutes", request.method, request.uri), e)
+                        completeResponse(StatusCodes.BadRequest,
+                          Option {
+                            ReturnMessageData(code = 100, message = e.getMessage)
+                          })
+                    }
                   }
                 }
               }

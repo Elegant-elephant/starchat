@@ -137,10 +137,6 @@ trait QuestionAnswerService extends AbstractDataService {
     }
   }
 
-  def dictSizeFuture(indexName: String, stale: Long = cacheStealTimeMillis): Future[DictSize] = Future {
-    dictSize(indexName = indexName, stale = stale)
-  }
-
   /** Calculate the total number of terms in the fields question and answer, including duplicates.
     *
     * @param indexName the index name
@@ -209,10 +205,6 @@ trait QuestionAnswerService extends AbstractDataService {
         totalTermsCache.update(key, (Time.timestampMillis, result))
         result
     }
-  }
-
-  def totalTermsFuture(indexName: String, stale: Long = cacheStealTimeMillis): Future[TotalTerms] = Future {
-    totalTerms(indexName = indexName, stale = stale)
   }
 
   /** calculate the occurrence of a term in the document fields questions or answer and the number of document
@@ -298,11 +290,6 @@ trait QuestionAnswerService extends AbstractDataService {
         countTermCache.update(key, (Time.timestampMillis, result))
         result
     }
-  }
-
-  def termCountFuture(indexName: String, field: TermCountFields.Value, term: String,
-                      stale: Long = cacheStealTimeMillis): Future[TermCount] = Future {
-    termCount(indexName, field, term, stale)
   }
 
   /** set the number of terms counter's cached entries
@@ -1551,7 +1538,7 @@ trait QuestionAnswerService extends AbstractDataService {
     res
   }
 
-  def create(indexName: String, document: QADocument, refresh: Int): Future[Option[IndexDocumentResult]] = Future {
+  def create(indexName: String, document: QADocument, refresh: Int): Option[IndexDocumentResult] = {
     val builder: XContentBuilder = jsonBuilder().startObject()
 
     builder.field("id", document.id)
@@ -1967,15 +1954,6 @@ trait QuestionAnswerService extends AbstractDataService {
     searchResultsOption
   }
 
-  def readFuture(indexName: String, ids: List[String]): Future[Option[SearchQADocumentsResults]] = Future {
-    read(indexName, ids)
-  }
-
-  def updateFuture(indexName: String, document: QADocumentUpdate, refresh: Int):
-  Future[UpdateDocumentsResult] = Future {
-    update(indexName = indexName, document = document, refresh = refresh)
-  }
-
   def allDocuments(indexName: String, keepAlive: Long = 60000, size: Int = 100): Iterator[QADocument] = {
     val client: RestHighLevelClient = elasticClient.httpClient
 
@@ -2055,12 +2033,6 @@ trait QuestionAnswerService extends AbstractDataService {
           UpdateDocumentResult(index = indexName, id = hit.document.id, version = -1, created = false)
       }
     }
-  }
-
-  def updateTextTermsFuture(indexName: String,
-                            extractionRequest: UpdateQATermsRequest):
-  Future[List[UpdateDocumentResult]] = Future {
-    updateTextTerms(indexName, extractionRequest)
   }
 
   def updateAllTextTerms(indexName: String,

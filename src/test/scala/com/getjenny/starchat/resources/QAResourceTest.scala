@@ -1,27 +1,10 @@
 package com.getjenny.starchat.resources
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.BasicHttpCredentials
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
-import akka.testkit._
-import com.getjenny.starchat.StarChatService
 import com.getjenny.starchat.entities._
-import com.getjenny.starchat.serializers.JsonSupport
 import com.getjenny.starchat.utils.Index
-import org.scalatest.{Matchers, WordSpec}
 
-import scala.concurrent.duration._
-
-class QAResourceTest extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport {
-  implicit def default(implicit system: ActorSystem) = RouteTestTimeout(10.seconds.dilated(system))
-
-  val service: StarChatService = TestFixtures.service
-  val routes: Route = service.routes
-
-  val testAdminCredentials = BasicHttpCredentials("admin", "adminp4ssw0rd")
-  val testUserCredentials = BasicHttpCredentials("test_user", "p4ssw0rd")
+class QAResourceTest extends TestEnglishBase {
 
   val qaRoutes = List("conversation_logs", "knowledgebase", "prior_data")
   val documents = List(
@@ -79,20 +62,6 @@ class QAResourceTest extends WordSpec with Matchers with ScalatestRouteTest with
         ))
 
   "StarChat" should {
-    "return an HTTP code 201 when creating a new system index" in {
-      Post(s"/system_index_management/create") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
-        status shouldEqual StatusCodes.Created
-        val response = responseAs[IndexManagementResponse]
-        response.message should fullyMatch regex "IndexCreation: " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.systemIndexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.systemIndexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.systemIndexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.systemIndexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\)".r
-      }
-    }
-  }
-
-  it should {
     "return an HTTP code 201 when creating a new user" in {
       val user = User(
         id = "test_user",
@@ -102,36 +71,6 @@ class QAResourceTest extends WordSpec with Matchers with ScalatestRouteTest with
       )
       Post(s"/user", user) ~> addCredentials(testAdminCredentials) ~> routes ~> check {
         status shouldEqual StatusCodes.Created
-      }
-    }
-  }
-
-  it should {
-    "return an HTTP code 201 when creating a new index" in {
-      Post(s"/index_getjenny_english_0/index_management/create") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
-        status shouldEqual StatusCodes.Created
-        val response = responseAs[IndexManagementResponse]
-        response.message should fullyMatch regex "IndexCreation: " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\)".r
-      }
-    }
-  }
-
-  it should {
-    "return an HTTP code 201 when creating a new common index" in {
-      Post(s"/index_getjenny_english_common_0/index_management/create") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
-        status shouldEqual StatusCodes.Created
-        val response = responseAs[IndexManagementResponse]
-        response.message should fullyMatch regex "IndexCreation: " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\) " +
-          "(?:[A-Za-z0-9_]+)\\(" + Index.indexMatchRegex + "\\.(?:[A-Za-z0-9_]+), true\\)".r
       }
     }
   }
@@ -444,33 +383,6 @@ class QAResourceTest extends WordSpec with Matchers with ScalatestRouteTest with
             coreData.question shouldEqual None
           }
         })
-      }
-    }
-  }
-
-  it should {
-    "return an HTTP code 200 when deleting an index" in {
-      Delete(s"/index_getjenny_english_0/index_management") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
-        status shouldEqual StatusCodes.OK
-        val response = responseAs[IndexManagementResponse]
-      }
-    }
-  }
-
-  it should {
-    "return an HTTP code 200 when deleting an common index" in {
-      Delete(s"/index_getjenny_english_common_0/index_management") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
-        status shouldEqual StatusCodes.OK
-        val response = responseAs[IndexManagementResponse]
-      }
-    }
-  }
-
-  it should {
-    "return an HTTP code 200 when deleting an existing system index" in {
-      Delete(s"/system_index_management") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
-        status shouldEqual StatusCodes.OK
-        val response = responseAs[IndexManagementResponse]
       }
     }
   }

@@ -32,14 +32,13 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
                 parameters("field".as[TermCountFields.Value] ?
                   TermCountFields.question, "term".as[String], "stale".as[Long] ? 0) { (field, term, stale) =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(questionAnswerService.termCountFuture(indexName, field, term, stale)) {
+                  onCompleteWithBreakerFuture(breaker)(questionAnswerService.termCount(indexName, field, term, stale)) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri +
-                        ") method=(" + request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 101, message = e.getMessage)
@@ -64,14 +63,13 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
               extractRequest { request =>
                 parameters("stale".as[Long] ? 0) { stale =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(questionAnswerService.dictSizeFuture(indexName, stale)) {
+                  onCompleteWithBreakerFuture(breaker)(questionAnswerService.dictSize(indexName, stale)) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri + ") method=(" +
-                        request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 102, message = e.getMessage)
@@ -96,14 +94,13 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
               extractRequest { request =>
                 parameters("stale".as[Long] ? 0) { stale =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(questionAnswerService.totalTermsFuture(indexName, stale)) {
+                  onCompleteWithBreakerFuture(breaker)(questionAnswerService.totalTerms(indexName, stale)) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri +
-                        ") method=(" + request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 103, message = e.getMessage)
@@ -148,32 +145,32 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
             extractRequest { request =>
               authorizeAsync(_ =>
                 authenticator.hasPermissions(user, indexName, Permissions.write)) {
-                parameters("refresh".as[Int] ? 0) { refresh =>
-                  entity(as[QADocument]) { document =>
-                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(questionAnswerService.create(indexName, document, refresh)) {
-                      case Success(t) =>
-                        t match {
-                          case Some(v) =>
-                            completeResponse(StatusCodes.Created, StatusCodes.BadRequest, Option {
-                              v
-                            })
-                          case None =>
-                            log.error("index(" + indexName + ") uri=(" + request.uri +
-                              ") method=(" + request.method.name + ")")
-                            completeResponse(StatusCodes.BadRequest,
-                              Option {
-                                ReturnMessageData(code = 104, message = "Error indexing new document, empty response")
+                extractRequest { request =>
+                  parameters("refresh".as[Int] ? 0) { refresh =>
+                    entity(as[QADocument]) { document =>
+                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                      onCompleteWithBreakerFuture(breaker)(questionAnswerService.create(indexName, document, refresh)) {
+                        case Success(t) =>
+                          t match {
+                            case Some(v) =>
+                              completeResponse(StatusCodes.Created, StatusCodes.BadRequest, Option {
+                                v
                               })
-                        }
-                      case Failure(e) =>
-                        val message = "index(" + indexName + ") uri=(" + request.uri +
-                          ") method=(" + request.method.name + ") : " + e.getMessage
-                        log.error(message)
-                        completeResponse(StatusCodes.BadRequest,
-                          Option {
-                            ReturnMessageData(code = 105, message = message)
-                          })
+                            case None =>
+                              log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri))
+                              completeResponse(StatusCodes.BadRequest,
+                                Option {
+                                  ReturnMessageData(code = 104, message = "Error indexing new document, empty response")
+                                })
+                          }
+                        case Failure(e) =>
+                          val message = logTemplate(user.id, indexName, routeName, request.method, request.uri)
+                          log.error(message, e)
+                          completeResponse(StatusCodes.BadRequest,
+                            Option {
+                              ReturnMessageData(code = 105, message = message)
+                            })
+                      }
                     }
                   }
                 }
@@ -187,20 +184,21 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
               extractRequest { request =>
                 authorizeAsync(_ =>
                   authenticator.hasPermissions(user, indexName, Permissions.read)) {
-                  parameters("id".as[String].*) { ids =>
-                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(questionAnswerService.readFuture(indexName, ids.toList)) {
-                      case Success(t) =>
-                        completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
-                          t
-                        })
-                      case Failure(e) =>
-                        log.error("index(" + indexName + ") uri=(" + request.uri +
-                          ") method=(" + request.method.name + ") : " + e.getMessage)
-                        completeResponse(StatusCodes.BadRequest,
-                          Option {
-                            ReturnMessageData(code = 106, message = e.getMessage)
+                  extractRequest { request =>
+                    parameters("id".as[String].*) { ids =>
+                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                      onCompleteWithBreakerFuture(breaker)(questionAnswerService.read(indexName, ids.toList)) {
+                        case Success(t) =>
+                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
+                            t
                           })
+                        case Failure(e) =>
+                          log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
+                          completeResponse(StatusCodes.BadRequest,
+                            Option {
+                              ReturnMessageData(code = 106, message = e.getMessage)
+                            })
+                      }
                     }
                   }
                 }
@@ -212,33 +210,33 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
               authenticator = authenticator.authenticator) { user =>
               authorizeAsync(_ =>
                 authenticator.hasPermissions(user, indexName, Permissions.write)) {
-                parameters("refresh".as[Int] ? 0) { refresh =>
-                  entity(as[DocsIds]) { request_data =>
-                    if (request_data.ids.nonEmpty) {
-                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                      onCompleteWithBreaker(breaker)(
-                        Future { questionAnswerService.delete(indexName, request_data.ids, refresh) } ) {
-                        case Success(t) =>
-                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                        case Failure(e) =>
-                          log.error("index(" + indexName + ") route=" + routeName + " method=DELETE : " + e.getMessage)
-                          completeResponse(StatusCodes.BadRequest,
-                            Option {
-                              ReturnMessageData(code = 104, message = e.getMessage)
-                            })
-                      }
-                    } else {
-                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                      onCompleteWithBreaker(breaker)(
-                        Future { questionAnswerService.deleteAll(indexName) } ) {
-                        case Success(t) =>
-                          completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                        case Failure(e) =>
-                          log.error("index(" + indexName + ") route=" + routeName + " method=DELETE : " + e.getMessage)
-                          completeResponse(StatusCodes.BadRequest,
-                            Option {
-                              ReturnMessageData(code = 105, message = e.getMessage)
-                            })
+                extractRequest { request =>
+                  parameters("refresh".as[Int] ? 0) { refresh =>
+                    entity(as[DocsIds]) { request_data =>
+                      if (request_data.ids.nonEmpty) {
+                        val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                        onCompleteWithBreakerFuture(breaker)(questionAnswerService.delete(indexName, request_data.ids, refresh)) {
+                          case Success(t) =>
+                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                          case Failure(e) =>
+                            log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
+                            completeResponse(StatusCodes.BadRequest,
+                              Option {
+                                ReturnMessageData(code = 104, message = e.getMessage)
+                              })
+                        }
+                      } else {
+                        val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                        onCompleteWithBreakerFuture(breaker)(questionAnswerService.deleteAll(indexName)) {
+                          case Success(t) =>
+                            completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                          case Failure(e) =>
+                            log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
+                            completeResponse(StatusCodes.BadRequest,
+                              Option {
+                                ReturnMessageData(code = 105, message = e.getMessage)
+                              })
+                        }
                       }
                     }
                   }
@@ -253,19 +251,20 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
             extractRequest { request =>
               authorizeAsync(_ =>
                 authenticator.hasPermissions(user, indexName, Permissions.write)) {
-                parameters("refresh".as[Int] ? 0) { refresh =>
-                  entity(as[QADocumentUpdate]) { update =>
-                    val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(questionAnswerService.updateFuture(indexName, update, refresh)) {
-                      case Success(t) =>
-                        completeResponse(StatusCodes.Created, StatusCodes.BadRequest, t)
-                      case Failure(e) =>
-                        log.error("index(" + indexName + ") uri=(" + request.uri +
-                          ") method=(" + request.method.name + ") : " + e.getMessage)
-                        completeResponse(StatusCodes.BadRequest,
-                          Option {
-                            ReturnMessageData(code = 108, message = e.getMessage)
-                          })
+                extractRequest { request =>
+                  parameters("refresh".as[Int] ? 0) { refresh =>
+                    entity(as[QADocumentUpdate]) { update =>
+                      val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                      onCompleteWithBreakerFuture(breaker)(questionAnswerService.update(indexName, update, refresh)) {
+                        case Success(t) =>
+                          completeResponse(StatusCodes.Created, StatusCodes.BadRequest, t)
+                        case Failure(e) =>
+                          log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
+                          completeResponse(StatusCodes.BadRequest,
+                            Option {
+                              ReturnMessageData(code = 108, message = e.getMessage)
+                            })
+                      }
                     }
                   }
                 }
@@ -287,14 +286,13 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
                 authenticator.hasPermissions(user, indexName, Permissions.read)) {
                 entity(as[DocsIds]) { docsIds =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(Future{questionAnswerService.conversations(indexName, docsIds)}) {
+                  onCompleteWithBreakerFuture(breaker)(questionAnswerService.conversations(indexName, docsIds)) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri +
-                        ") method=(" + request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 110, message = e.getMessage)
@@ -313,16 +311,15 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
                 parameters("refresh".as[Int] ? 0) { refresh =>
                 entity(as[UpdateQAByQueryReq]) { updateReq =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(Future {
+                  onCompleteWithBreakerFuture(breaker)(
                     questionAnswerService.updateByQuery(indexName = indexName, updateReq = updateReq, refresh = refresh)
-                  }) {
+                  ) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri +
-                        ") method=(" + request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 111, message = e.getMessage)
@@ -349,14 +346,13 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
                 authenticator.hasPermissions(user, indexName, Permissions.read)) {
                 entity(as[QAAggregatedAnalyticsRequest]) { analytics =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(Future{questionAnswerService.analytics(indexName, analytics)}) {
+                  onCompleteWithBreakerFuture(breaker)(questionAnswerService.analytics(indexName, analytics)) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri +
-                        ") method=(" + request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 110, message = e.getMessage)
@@ -382,14 +378,13 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
                 authenticator.hasPermissions(user, indexName, Permissions.read)) {
                 entity(as[QADocumentSearch]) { docsearch =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(Future{questionAnswerService.search(indexName, docsearch)}) {
+                  onCompleteWithBreakerFuture(breaker)(questionAnswerService.search(indexName, docsearch)) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri +
-                        ") method=(" + request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 110, message = e.getMessage)
@@ -414,15 +409,14 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
               extractRequest { request =>
                 entity(as[UpdateQATermsRequest]) { extractionRequest =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(questionAnswerService.updateTextTermsFuture(indexName = indexName,
+                  onCompleteWithBreakerFuture(breaker)(questionAnswerService.updateTextTerms(indexName = indexName,
                     extractionRequest = extractionRequest)) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri +
-                        ") method=(" + request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 111, message = e.getMessage)
@@ -462,13 +456,11 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
               authenticator.hasPermissions(user, "admin", Permissions.admin)) {
               extractRequest { request =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(
-                  Future {questionAnswerService.countersCacheReset}) {
+                onCompleteWithBreakerFuture(breaker)(questionAnswerService.countersCacheReset) {
                   case Success(t) =>
                     completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Some(t))
                   case Failure(e) =>
-                    log.error("index(" + indexName + ") uri=(" + request.uri +
-                      ") method=(" + request.method.name + ") : " + e.getMessage)
+                    log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                     completeResponse(StatusCodes.BadRequest,
                       Option {
                         ReturnMessageData(code = 112, message = e.getMessage)
@@ -484,17 +476,13 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
               extractRequest { request =>
                 entity(as[CountersCacheParameters]) { cacheSize =>
                   val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                  onCompleteWithBreaker(breaker)(
-                    Future {
-                      questionAnswerService.countersCacheParameters(cacheSize)
-                    }) {
+                  onCompleteWithBreakerFuture(breaker)(questionAnswerService.countersCacheParameters(cacheSize)) {
                     case Success(t) =>
                       completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                         t
                       })
                     case Failure(e) =>
-                      log.error("index(" + indexName + ") uri=(" + request.uri +
-                        ") method=(" + request.method.name + ") : " + e.getMessage)
+                      log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                       completeResponse(StatusCodes.BadRequest,
                         Option {
                           ReturnMessageData(code = 112, message = e.getMessage)
@@ -510,17 +498,13 @@ class QAResource(questionAnswerService: QuestionAnswerService, routeName: String
               authenticator.hasPermissions(user, "admin", Permissions.admin)) {
               extractRequest { request =>
                 val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(
-                  Future {
-                    questionAnswerService.countersCacheParameters
-                  }) {
+                onCompleteWithBreakerFuture(breaker)(questionAnswerService.countersCacheParameters) {
                   case Success(t) =>
                     completeResponse(StatusCodes.OK, StatusCodes.BadRequest, Option {
                       t
                     })
                   case Failure(e) =>
-                    log.error("index(" + indexName + ") uri=(" + request.uri +
-                      ") method=(" + request.method.name + ") : " + e.getMessage)
+                    log.error(logTemplate(user.id, indexName, routeName, request.method, request.uri), e)
                     completeResponse(StatusCodes.BadRequest,
                       Option {
                         ReturnMessageData(code = 113, message = e.getMessage)

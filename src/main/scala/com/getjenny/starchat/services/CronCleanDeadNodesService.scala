@@ -18,9 +18,9 @@ object CronCleanDeadNodesService extends CronService {
         if(clusterNodesService.elasticClient.existsIndices(List(clusterNodesService.indexName))) {
           val cleanedNodes = clusterNodesService.cleanDeadNodes
           if (cleanedNodes.deleted > 0) {
-            log.debug("Cleaned " + cleanedNodes.deleted + " nodes: " + cleanedNodes.message)
+            log.debug("Cleaned {} nodes: {}", cleanedNodes.deleted, cleanedNodes.message)
           }
-        } else log.debug("index does not exists: " + clusterNodesService.indexName)
+        } else log.debug("index does not exists: {}", clusterNodesService.indexName)
       case _ =>
         log.error("Unknown error cleaning cluster nodes tables")
     }

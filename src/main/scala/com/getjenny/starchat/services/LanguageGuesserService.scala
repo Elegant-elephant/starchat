@@ -16,8 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 object LanguageGuesserService {
   implicit def executionContext: ExecutionContext = SCActorSystem.system.dispatcher
-  def guessLanguage(indexName: String, requestData: LanguageGuesserRequestIn):
-  Future[LanguageGuesserRequestOut] = Future {
+  def guessLanguage(indexName: String, requestData: LanguageGuesserRequestIn): LanguageGuesserRequestOut = {
     val detector: LanguageDetector = new OptimaizeLangDetector().loadModels()
     val result: LanguageResult = detector.detect(requestData.inputText)
 
@@ -27,8 +26,7 @@ object LanguageGuesserService {
     )
   }
 
-  def getLanguages(indexName: String, languageCode: String /*ISO 639-1 name for language*/):
-  Future[LanguageGuesserInformations] = Future {
+  def getLanguages(indexName: String, languageCode: String /*ISO 639-1 name for language*/):LanguageGuesserInformations = {
     val detector: LanguageDetector = new OptimaizeLangDetector().loadModels()
     val hasModel: Boolean = detector.hasModel(languageCode)
     LanguageGuesserInformations(

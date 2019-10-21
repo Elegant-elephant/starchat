@@ -25,20 +25,20 @@ trait TokenizersResource extends StarChatResource {
             authenticator = authenticator.authenticator) { user =>
             authorizeAsync(_ =>
               authenticator.hasPermissions(user, indexName, Permissions.read)) {
-              entity(as[TokenizerQueryRequest]) { request_data =>
-                val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                onCompleteWithBreaker(breaker)(Future {
-                  termService.esTokenizer(indexName, request_data)
-                }) {
-                  case Success(t) =>
-                    completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
-                  case Failure(e) =>
-                    log.error("index(" + indexName + ") route=esTokenizersRoutes method=POST data=(" +
-                      request_data + ") : " + e.getMessage)
-                    completeResponse(StatusCodes.BadRequest,
-                      Option {
-                        ReturnMessageData(code = 100, message = e.getMessage)
-                      })
+              extractRequest { request =>
+                entity(as[TokenizerQueryRequest]) { request_data =>
+                  val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
+                  onCompleteWithBreakerFuture(breaker)(termService.esTokenizer(indexName, request_data)) {
+                    case Success(t) =>
+                      completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
+                    case Failure(e) =>
+                      log.error(logTemplate(user.id, indexName, "esTokenizersRoutes", request.method,
+                        request.uri, s"data=$request_data"), e)
+                      completeResponse(StatusCodes.BadRequest,
+                        Option {
+                          ReturnMessageData(code = 100, message = e.getMessage)
+                        })
+                  }
                 }
               }
             }

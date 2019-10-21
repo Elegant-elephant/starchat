@@ -12,9 +12,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait AbstractUserService {
   implicit def executionContext: ExecutionContext = SCActorSystem.system.dispatchers.lookup("starchat.dispatcher")
-  def create(user: User): Future[IndexDocumentResult]
-  def update(user: UserUpdate): Future[UpdateDocumentResult]
-  def delete(user: UserId): Future[DeleteDocumentResult]
-  def read(user: UserId): Future[User]
-  def genUser(user: UserUpdate, authenticator: AbstractStarChatAuthenticator): Future[User]
+  def create(user: User): IndexDocumentResult
+  def update(user: UserUpdate): UpdateDocumentResult
+  def delete(user: UserId): DeleteDocumentResult
+  def read(user: UserId): User
+  def genUser(user: UserUpdate, authenticator: AbstractStarChatAuthenticator): User
 }

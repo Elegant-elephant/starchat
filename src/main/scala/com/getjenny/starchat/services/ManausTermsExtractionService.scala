@@ -137,7 +137,7 @@ object ManausTermsExtractionService extends AbstractDataService {
         priorOccurrences.totalNumberOfTokens + ")"
     }.mkString(" ; ")
 
-    log.debug("SentenceFrequencies: " + freqData)
+    log.debug("SentenceFrequencies: {}", freqData)
 
     /* Informative words */
     val rawBagOfKeywordsInfo: List[(String, Double)] =
@@ -207,11 +207,6 @@ object ManausTermsExtractionService extends AbstractDataService {
     )
   }
 
-  def termFrequencyFuture(indexName: String, extractionRequest: TermsExtractionRequest):
-  Future[TokenFrequency] = Future {
-    termFrequency(indexName, extractionRequest)
-  }
-
   def textTerms(indexName: String,
                 extractionRequest: TermsExtractionRequest
                ): (TokenizerResponse, Map[String, Double]) = {
@@ -219,7 +214,7 @@ object ManausTermsExtractionService extends AbstractDataService {
     val tokens = tokenize(indexName, extractionRequest)
     val (priorOccurrences, observedOccurrences) = initTokenOccurrence(indexName, extractionRequest)
 
-    log.debug("ExtractionRequest:" + extractionRequest)
+    log.debug("ExtractionRequest: {}", extractionRequest)
 
     val bags = extractKeywords(sentenceTokens = tokens.tokens.map(_.token),
       observedOccurrences = observedOccurrences,
@@ -236,12 +231,6 @@ object ManausTermsExtractionService extends AbstractDataService {
       case(_, tokenBags) => (tokens, tokenBags)
       case _ => (TokenizerResponse(), Map.empty[String, Double])
     }
-  }
-
-  def textTermsFuture(indexName: String,
-                      extractionRequest: TermsExtractionRequest
-                     ): Future[(TokenizerResponse, Map[String, Double])] = Future {
-    textTerms(indexName = indexName, extractionRequest = extractionRequest)
   }
 
   def termsSynonyms(indexName: String,
@@ -269,9 +258,9 @@ object ManausTermsExtractionService extends AbstractDataService {
 
     // extract manaus terms
     val (tokenizationRes, manausKeywords) = textTerms(indexName, termsExtractionRequest)
-    log.info("ManausTermsExtraction: " + tokenizationRes)
+    log.info("ManausTermsExtraction: {}", tokenizationRes)
 
-    log.debug("Terms extraction Request: " + extractionRequest)
+    log.debug("Terms extraction Request: {}", extractionRequest)
 
     // calculate source index name for the terms (vectorial representation)
     val termsIndexName = extractionRequest.commonOrSpecificSearchTerms match {
@@ -281,7 +270,7 @@ object ManausTermsExtractionService extends AbstractDataService {
         Index.getCommonIndexName(indexName)
     }
 
-    log.debug("IndexName (" + indexName + ") -> termsIndexName(" + termsIndexName + ")")
+    log.debug("IndexName ({}) -> termsIndexName({})", indexName, termsIndexName)
 
     // extraction of vectorial terms representation
     val tokenTermsId: Set[String] = tokenizationRes.tokens.map(_.token).toSet // all tokens
@@ -388,12 +377,6 @@ object ManausTermsExtractionService extends AbstractDataService {
         synonymItem = synItems
       )
     }
-  }
-
-  def termsSynonymsFuture(indexName: String,
-                          extractionRequest: SynExtractionRequest
-                         ): Future[List[SynonymExtractionItem]] = Future {
-    termsSynonyms(indexName = indexName, extractionRequest = extractionRequest)
   }
 
 }

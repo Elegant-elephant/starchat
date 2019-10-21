@@ -9,10 +9,10 @@ import akka.testkit._
 import com.getjenny.starchat.entities._
 import com.getjenny.starchat.serializers.JsonSupport
 import com.getjenny.starchat.utils.Index
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 
 import scala.concurrent.duration._
-class SystemIndexManagementResourceTest extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport {
+class SystemIndexManagementResourceTest extends WordSpec with Matchers with ScalatestRouteTest with JsonSupport with BeforeAndAfterAll{
   implicit def default(implicit system: ActorSystem) = RouteTestTimeout(10.seconds.dilated(system))
 
   val service = TestFixtures.service
@@ -23,6 +23,12 @@ class SystemIndexManagementResourceTest extends WordSpec with Matchers with Scal
   val testUserCredentials = BasicHttpCredentials("test_user", "p4ssw0rd")
 
   val suffixes = Seq("user", "refresh_decisiontable", "cluster_nodes", "decision_table_node_status")
+
+  override protected def afterAll(): Unit = {
+    Delete(s"/system_index_management") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
+      true
+    }
+  }
 
   "StarChat" should {
     "return an HTTP code 400 when getting system indices that don't exist" in {
@@ -67,6 +73,7 @@ class SystemIndexManagementResourceTest extends WordSpec with Matchers with Scal
       Get(s"/system_indices") ~> addCredentials(testAdminCredentials) ~> routes ~> check {
         status shouldEqual StatusCodes.OK
         val response = responseAs[List[String]]
+        response.foreach(println)
         response.length should be (4)
       }
     }

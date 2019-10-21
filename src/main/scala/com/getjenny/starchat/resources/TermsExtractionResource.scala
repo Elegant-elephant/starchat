@@ -29,8 +29,8 @@ trait TermsExtractionResource extends StarChatResource {
                 extractRequest { request =>
                   entity(as[TermsExtractionRequest]) { extractionRequest =>
                     val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(
-                      spellcheckService.termFrequencyFuture(indexName = indexName,
+                    onCompleteWithBreakerFuture(breaker)(
+                      spellcheckService.termFrequency(indexName = indexName,
                         extractionRequest = extractionRequest)
                     ) {
                       case Success(t) =>
@@ -65,7 +65,7 @@ trait TermsExtractionResource extends StarChatResource {
                 extractRequest { request =>
                   entity(as[TermsExtractionRequest]) { extractionRequest =>
                     val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(spellcheckService.textTermsFuture(indexName = indexName,
+                    onCompleteWithBreakerFuture(breaker)(spellcheckService.textTerms(indexName = indexName,
                       extractionRequest = extractionRequest)) {
                       case Success((_, terms)) =>
                         completeResponse(StatusCodes.OK, StatusCodes.BadRequest, terms)
@@ -99,13 +99,13 @@ trait TermsExtractionResource extends StarChatResource {
                 extractRequest { request =>
                   entity(as[SynExtractionRequest]) { extractionRequest =>
                     val breaker: CircuitBreaker = StarChatCircuitBreaker.getCircuitBreaker()
-                    onCompleteWithBreaker(breaker)(spellcheckService.termsSynonymsFuture(indexName = indexName,
+                    onCompleteWithBreakerFuture(breaker)(spellcheckService.termsSynonyms(indexName = indexName,
                       extractionRequest = extractionRequest)) {
                       case Success(t) =>
                         completeResponse(StatusCodes.OK, StatusCodes.BadRequest, t)
                       case Failure(e) =>
-                        log.error("index(" + indexName + ") uri=(" + request.uri +
-                          ") method=(" + request.method.name + ") : " + e.getMessage)
+                        log.error(logTemplate(user.id, indexName, "synExtractionRoutes",
+                          request.method, request.uri), e)
                         completeResponse(StatusCodes.BadRequest,
                           Option {
                             ReturnMessageData(code = 100, message = e.getMessage)
